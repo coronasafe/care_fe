@@ -70,6 +70,7 @@ import useConfig from "../Common/hooks/useConfig";
 import FacilityCNS from "../Components/Facility/FacilityCNS";
 import ConsultationClaims from "../Components/Facility/ConsultationClaims";
 import { handleSignOut } from "../Utils/utils";
+import DoctorLiveConnect from "../Components/Facility/DoctorLiveConnect";
 
 export default function AppRouter() {
   const { static_black_logo, enable_hcx } = useConfig();
@@ -398,6 +399,10 @@ export default function AppRouter() {
           tab={tab}
         />
       ),
+    "/facility/:facilityId/live_connect/:userId": ({
+      facilityId,
+      userId,
+    }: any) => <DoctorLiveConnect facilityId={facilityId} userId={userId} />,
     "/not-found": () => <Error404 />,
   };
 
