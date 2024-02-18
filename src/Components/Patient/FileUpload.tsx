@@ -1,44 +1,46 @@
-import axios from "axios";
-import CircularProgress from "../Common/components/CircularProgress";
+import * as Notification from "../../Utils/Notifications.js";
+
+import ButtonV2, { Cancel, Submit } from "../Common/components/ButtonV2";
 import {
+  ChangeEvent,
+  lazy,
   useCallback,
-  useState,
   useEffect,
   useRef,
-  lazy,
-  ChangeEvent,
+  useState,
 } from "react";
-import { useDispatch } from "react-redux";
-import { statusType, useAbortableEffect } from "../../Common/utils";
 import {
-  viewUpload,
-  retrieveUpload,
   createUpload,
-  getPatient,
   editUpload,
+  getPatient,
+  retrieveUpload,
+  viewUpload,
 } from "../../Redux/actions";
+import { statusType, useAbortableEffect } from "../../Common/utils";
+
+import AuthorizedChild from "../../CAREUI/misc/AuthorizedChild";
+import CareIcon from "../../CAREUI/icons/CareIcon";
+import CircularProgress from "../Common/components/CircularProgress";
+import DialogModal from "../Common/Dialog";
+import FilePreviewDialog from "../Common/FilePreviewDialog";
 import { FileUploadModel } from "./models";
-import * as Notification from "../../Utils/Notifications.js";
-import { VoiceRecorder } from "../../Utils/VoiceRecorder";
+import HeadedTabs from "../Common/HeadedTabs";
+import { NonReadOnlyUsers } from "../../Utils/AuthorizeFor";
+import Page from "../Common/components/Page";
 import Pagination from "../Common/Pagination";
 import { RESULTS_PER_PAGE_LIMIT } from "../../Common/constants";
-import imageCompression from "browser-image-compression";
-import { formatDateTime } from "../../Utils/utils";
-import { useTranslation } from "react-i18next";
-import HeadedTabs from "../Common/HeadedTabs";
-import ButtonV2, { Cancel, Submit } from "../Common/components/ButtonV2";
-import DialogModal from "../Common/Dialog";
-import CareIcon from "../../CAREUI/icons/CareIcon";
-import TextFormField from "../Form/FormFields/TextFormField";
-import TextAreaFormField from "../Form/FormFields/TextAreaFormField";
 import RecordMeta from "../../CAREUI/display/RecordMeta";
+import TextAreaFormField from "../Form/FormFields/TextAreaFormField";
+import TextFormField from "../Form/FormFields/TextFormField";
+import { VoiceRecorder } from "../../Utils/VoiceRecorder";
 import Webcam from "react-webcam";
-import useWindowDimensions from "../../Common/hooks/useWindowDimensions";
-import { NonReadOnlyUsers } from "../../Utils/AuthorizeFor";
-import AuthorizedChild from "../../CAREUI/misc/AuthorizedChild";
-import Page from "../Common/components/Page";
-import FilePreviewDialog from "../Common/FilePreviewDialog";
+import axios from "axios";
+import { formatDateTime } from "../../Utils/utils";
+import imageCompression from "browser-image-compression";
 import useAuthUser from "../../Common/hooks/useAuthUser";
+import { useDispatch } from "react-redux";
+import { useTranslation } from "react-i18next";
+import useWindowDimensions from "../../Common/hooks/useWindowDimensions";
 
 const Loading = lazy(() => import("../Common/Loading"));
 
@@ -102,6 +104,7 @@ interface FileUploadProps {
   unspecified: boolean;
   sampleId?: string;
   claimId?: string;
+  communicationId?: string;
 }
 
 interface URLS {
@@ -143,6 +146,7 @@ export const FileUpload = (props: FileUploadProps) => {
     unspecified,
     sampleId,
     claimId,
+    communicationId,
   } = props;
   const id = patientId;
   const dispatch: any = useDispatch();
@@ -265,12 +269,14 @@ export const FileUpload = (props: FileUploadProps) => {
     CONSULTATION: "Upload Consultation Files",
     SAMPLE_MANAGEMENT: "Upload Sample Report",
     CLAIM: "Upload Supporting Info",
+    COMMUNICATION: "Upload Supporting Info",
   };
   const VIEW_HEADING: { [index: string]: string } = {
     PATIENT: "View Patient Files",
     CONSULTATION: "View Consultation Files",
     SAMPLE_MANAGEMENT: "View Sample Report",
     CLAIM: "Supporting Info",
+    COMMUNICATION: "Supporting Info",
   };
 
   const handleClose = () => {
@@ -295,6 +301,8 @@ export const FileUpload = (props: FileUploadProps) => {
         return sampleId;
       case "CLAIM":
         return claimId;
+      case "COMMUNICATION":
+        return communicationId;
     }
   };
 

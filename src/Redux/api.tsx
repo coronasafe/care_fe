@@ -1,24 +1,3 @@
-import { IConfig } from "../Common/hooks/useConfig";
-
-import {
-  IAadhaarOtp,
-  IAadhaarOtpTBody,
-  ICheckAndGenerateMobileOtp,
-  IConfirmMobileOtp,
-  IcreateHealthFacilityTBody,
-  ICreateHealthIdRequest,
-  ICreateHealthIdResponse,
-  IGenerateMobileOtpTBody,
-  IgetAbhaCardTBody,
-  IHealthFacility,
-  IHealthId,
-  IinitiateAbdmAuthenticationTBody,
-  ILinkABHANumber,
-  ILinkViaQRBody,
-  IpartialUpdateHealthFacilityTBody,
-  ISearchByHealthIdTBody,
-  IVerifyAadhaarOtpTBody,
-} from "../Components/ABDM/models";
 import {
   AssetBedBody,
   AssetBedModel,
@@ -31,33 +10,59 @@ import {
   PatientAssetBed,
 } from "../Components/Assets/AssetTypes";
 import {
+  BedModel,
   CapacityModal,
   ConsultationModel,
   CreateBedBody,
   CurrentBed,
-  DistrictModel,
   DailyRoundsBody,
   DailyRoundsRes,
+  DistrictModel,
   DoctorModal,
   FacilityModel,
+  FacilityRequest,
   IFacilityNotificationRequest,
   IFacilityNotificationResponse,
   IUserFacilityRequest,
+  InventoryItemsModel,
+  InventoryLogResponse,
+  InventorySummaryResponse,
   LocalBodyModel,
+  LocationModel,
+  MinimumQuantityItemResponse,
+  PatientNotesEditModel,
+  PatientNotesModel,
   PatientStatsModel,
-  FacilityRequest,
+  PatientTransferResponse,
   StateModel,
   WardModel,
-  LocationModel,
-  PatientNotesModel,
-  PatientNotesEditModel,
-  BedModel,
-  MinimumQuantityItemResponse,
-  InventorySummaryResponse,
-  InventoryLogResponse,
-  InventoryItemsModel,
-  PatientTransferResponse,
 } from "../Components/Facility/models";
+import {
+  DailyRoundsModel,
+  PatientModel,
+  SampleReportModel,
+  SampleTestModel,
+} from "../Components/Patient/models";
+import {
+  IAadhaarOtp,
+  IAadhaarOtpTBody,
+  ICheckAndGenerateMobileOtp,
+  IConfirmMobileOtp,
+  ICreateHealthIdRequest,
+  ICreateHealthIdResponse,
+  IGenerateMobileOtpTBody,
+  IHealthFacility,
+  IHealthId,
+  ILinkABHANumber,
+  ILinkViaQRBody,
+  ISearchByHealthIdTBody,
+  IVerifyAadhaarOtpTBody,
+  IcreateHealthFacilityTBody,
+  IgetAbhaCardTBody,
+  IinitiateAbdmAuthenticationTBody,
+  IpartialUpdateHealthFacilityTBody,
+} from "../Components/ABDM/models";
+import { IComment, IResource } from "../Components/Resource/models";
 import {
   IDeleteBedCapacity,
   IDeleteExternalResult,
@@ -68,33 +73,27 @@ import {
   IPartialUpdateExternalResult,
 } from "../Components/ExternalResult/models";
 import {
+  InvestigationGroup,
+  InvestigationType,
+} from "../Components/Facility/Investigations";
+import {
+  NotificationData,
+  PNconfigData,
+} from "../Components/Notifications/models";
+import {
   SkillModel,
   SkillObjectModel,
   UpdatePasswordForm,
   UserModel,
 } from "../Components/Users/models";
-import { Prescription } from "../Components/Medicine/models";
-import {
-  DailyRoundsModel,
-  PatientModel,
-  SampleReportModel,
-  SampleTestModel,
-} from "../Components/Patient/models";
-import { PaginatedResponse } from "../Utils/request/types";
-import {
-  NotificationData,
-  PNconfigData,
-} from "../Components/Notifications/models";
 
-import { IComment, IResource } from "../Components/Resource/models";
-import { IShift } from "../Components/Shifting/models";
 import { HCXPolicyModel } from "../Components/HCX/models";
-import {
-  InvestigationGroup,
-  InvestigationType,
-} from "../Components/Facility/Investigations";
-import { Investigation } from "../Components/Facility/Investigations/Reports/types";
 import { ICD11DiagnosisModel } from "../Components/Diagnosis/types";
+import { IConfig } from "../Common/hooks/useConfig";
+import { IShift } from "../Components/Shifting/models";
+import { Investigation } from "../Components/Facility/Investigations/Reports/types";
+import { PaginatedResponse } from "../Utils/request/types";
+import { Prescription } from "../Components/Medicine/models";
 
 /**
  * A fake function that returns an empty object casted to type T
@@ -1461,6 +1460,41 @@ const routes = {
 
   hcxMakeClaim: {
     path: "/api/v1/hcx/make_claim/",
+    method: "POST",
+  },
+
+  listHCXCommunications: {
+    path: "/api/v1/hcx/communication/",
+    method: "GET",
+  },
+
+  createHCXCommunication: {
+    path: "/api/v1/hcx/communication/",
+    method: "POST",
+  },
+
+  getHCXCommunication: {
+    path: "/api/v1/hcx/communication/{external_id}/",
+    method: "GET",
+  },
+
+  updateHCXCommunication: {
+    path: "/api/v1/hcx/communication/{external_id}/",
+    method: "PUT",
+  },
+
+  partialUpdateHCXCommunication: {
+    path: "/api/v1/hcx/communication/{external_id}/",
+    method: "PATCH",
+  },
+
+  deleteHCXCommunication: {
+    path: "/api/v1/hcx/communication/{external_id}/",
+    method: "DELETE",
+  },
+
+  hcxSendCommunication: {
+    path: "/api/v1/hcx/send_communication/",
     method: "POST",
   },
 } as const;

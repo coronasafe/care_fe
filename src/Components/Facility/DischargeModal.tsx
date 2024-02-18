@@ -4,26 +4,26 @@ import { Cancel, Submit } from "../Common/components/ButtonV2";
 import { useCallback, useEffect, useState } from "react";
 
 import CareIcon from "../../CAREUI/icons/CareIcon";
-import ClaimDetailCard from "../HCX/ClaimDetailCard";
+import CircularProgress from "../Common/components/CircularProgress";
+import ClaimCard from "../HCX/ClaimCard";
 import { ConsultationModel } from "./models";
 import CreateClaimCard from "../HCX/CreateClaimCard";
 import { DISCHARGE_REASONS } from "../../Common/constants";
 import DialogModal from "../Common/Dialog";
+import { FacilityModel } from "./models";
+import { FacilitySelect } from "../Common/FacilitySelect";
 import { FieldLabel } from "../Form/FormFields/FormField";
 import { HCXActions } from "../../Redux/actions";
 import { HCXClaimModel } from "../HCX/models";
+import PrescriptionBuilder from "../Medicine/PrescriptionBuilder";
 import { SelectFormField } from "../Form/FormFields/SelectFormField";
 import TextAreaFormField from "../Form/FormFields/TextAreaFormField";
 import TextFormField from "../Form/FormFields/TextFormField";
+import dayjs from "../../Utils/dayjs";
 import { dischargePatient } from "../../Redux/actions";
 import useConfig from "../../Common/hooks/useConfig";
 import { useDispatch } from "react-redux";
 import { useMessageListener } from "../../Common/hooks/useMessageListener";
-import PrescriptionBuilder from "../Medicine/PrescriptionBuilder";
-import CircularProgress from "../Common/components/CircularProgress";
-import { FacilitySelect } from "../Common/FacilitySelect";
-import { FacilityModel } from "./models";
-import dayjs from "../../Utils/dayjs";
 
 interface PreDischargeFormInterface {
   new_discharge_reason: number | null;
@@ -168,12 +168,15 @@ const DischargeModal = ({
   const handleFacilitySelect = (selected: FacilityModel) => {
     setFacility(selected);
     const { id, name } = selected || {};
-    const isExternal = id === -1;
-    setPreDischargeForm((prev) => ({
-      ...prev,
-      referred_to: isExternal ? null : id,
-      referred_to_external: isExternal ? name : null,
-    }));
+    const isExternal = Number(id) === -1;
+    setPreDischargeForm(
+      (prev) =>
+        ({
+          ...prev,
+          referred_to: isExternal ? null : id,
+          referred_to_external: isExternal ? name : null,
+        } as PreDischargeFormInterface)
+    );
   };
 
   return (
@@ -330,7 +333,7 @@ const DischargeModal = ({
         <div className="my-5 rounded p-5 shadow">
           <h2 className="mb-2">Claim Insurance</h2>
           {latestClaim ? (
-            <ClaimDetailCard claim={latestClaim} />
+            <ClaimCard claim={latestClaim} />
           ) : (
             <CreateClaimCard
               consultationId={consultationData.id ?? ""}
