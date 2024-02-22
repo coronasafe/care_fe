@@ -479,3 +479,10 @@ export const mergeQueryOptions = <T extends object>(
     ),
   ];
 };
+
+export function daysUntilToday(inputDate: Date | string) {
+  return Math.floor(
+    (new Date().getTime() - new Date(inputDate).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+}

@@ -51,5 +51,6 @@
   "last_serviced_on": "Last Serviced On",
   "notes": "Notes",
   "create_asset": "Create Asset",
-  "create_add_more": "Create & Add More"
+  "create_add_more": "Create & Add More",
+  "ip_days": "IP Days"
 }

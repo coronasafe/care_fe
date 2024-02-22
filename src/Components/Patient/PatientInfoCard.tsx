@@ -15,7 +15,12 @@ import { useState } from "react";
 import CareIcon from "../../CAREUI/icons/CareIcon.js";
 import useConfig from "../../Common/hooks/useConfig.js";
 import dayjs from "../../Utils/dayjs.js";
-import { classNames, formatDate, formatDateTime } from "../../Utils/utils.js";
+import {
+  classNames,
+  daysUntilToday,
+  formatDate,
+  formatDateTime,
+} from "../../Utils/utils.js";
 import ABHAProfileModal from "../ABDM/ABHAProfileModal.js";
 import LinkABHANumberModal from "../ABDM/LinkABHANumberModal.js";
 import LinkCareContextModal from "../ABDM/LinkCareContextModal.js";
@@ -33,6 +38,7 @@ import { Mews } from "../Facility/Consultations/Mews.js";
 import DischargeSummaryModal from "../Facility/DischargeSummaryModal.js";
 import DischargeModal from "../Facility/DischargeModal.js";
 import { useTranslation } from "react-i18next";
+import Chip from "../../CAREUI/display/Chip.js";
 
 export default function PatientInfoCard(props: {
   patient: PatientModel;
@@ -272,6 +278,16 @@ export default function PatientInfoCard(props: {
                         }`}
                       </span>
                     </span>
+                  )}
+                  {patient.last_consultation?.suggestion === "A" && (
+                    <Chip
+                      size="small"
+                      variant="primary"
+                      startIcon="l-clock"
+                      text={`${t("ip_days")}: ${daysUntilToday(
+                        patient.last_consultation?.encounter_date
+                      )}`}
+                    />
                   )}
                   {patient.action && patient.action != 10 && (
                     <div>
