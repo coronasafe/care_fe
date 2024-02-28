@@ -424,6 +424,9 @@ export const PatientRegister = (props: PatientRegisterProps) => {
             village: res.data.village ? res.data.village : "",
             medical_history: [],
             is_antenatal: String(!!res.data.is_antenatal),
+            last_menstruation_start_date: res.data.last_menstruation_start_date,
+            date_of_delivery: res.data.date_of_delivery,
+            is_postpartum: String(!!res.data.date_of_delivery),
             allergies: res.data.allergies ? res.data.allergies : "",
             pincode: res.data.pincode ? res.data.pincode : "",
             ongoing_medication: res.data.ongoing_medication
@@ -566,6 +569,16 @@ export const PatientRegister = (props: PatientRegisterProps) => {
         case "gender":
         case "date_of_birth":
           errors[field] = RequiredFieldValidator()(form[field]);
+          return;
+        case "last_menstruation_start_date":
+          if (form.is_antenatal === "true") {
+            errors[field] = RequiredFieldValidator()(form[field]);
+          }
+          return;
+        case "date_of_delivery":
+          if (form.is_postpartum === "true") {
+            errors[field] = RequiredFieldValidator()(form[field]);
+          }
           return;
         case "permanent_address":
           if (!form.sameAddress) {
@@ -779,6 +792,14 @@ export const PatientRegister = (props: PatientRegisterProps) => {
       gender: Number(formData.gender),
       nationality: formData.nationality,
       is_antenatal: formData.is_antenatal,
+      last_menstruation_start_date:
+        formData.is_antenatal === "true"
+          ? dateQueryString(formData.last_menstruation_start_date)
+          : null,
+      date_of_delivery:
+        formData.is_postpartum === "true"
+          ? dateQueryString(formData.date_of_delivery)
+          : null,
       passport_no:
         formData.nationality !== "India" ? formData.passport_no : undefined,
       state: formData.nationality === "India" ? formData.state : undefined,
@@ -1316,6 +1337,20 @@ export const PatientRegister = (props: PatientRegisterProps) => {
                               required
                               label="Gender"
                               options={genderTypes}
+                              onChange={(e) => {
+                                field("gender").onChange(e);
+                                if (e.value !== "2") {
+                                  field("is_antenatal").onChange({
+                                    name: "is_antenatal",
+                                    value: "false",
+                                  });
+
+                                  field("is_postpartum").onChange({
+                                    name: "is_postpartum",
+                                    value: "false",
+                                  });
+                                }
+                              }}
                               optionLabel={(o: any) => o.text}
                               optionValue={(o: any) => o.id}
                             />
@@ -1327,7 +1362,7 @@ export const PatientRegister = (props: PatientRegisterProps) => {
                               <div id="is_antenatal-div" className="col-span-2">
                                 <RadioFormField
                                   {...field("is_antenatal")}
-                                  label="Is antenatal ?"
+                                  label="Is antenatal?"
                                   aria-label="is_antenatal"
                                   options={[
                                     { label: "Yes", value: "true" },
@@ -1338,6 +1373,49 @@ export const PatientRegister = (props: PatientRegisterProps) => {
                                 />
                               </div>
                             }
+                          </CollapseV2>
+                          <CollapseV2
+                            opened={field("is_antenatal").value === "true"}
+                          >
+                            {
+                              <div className="col-span-2">
+                                <DateFormField
+                                  containerClassName="w-full"
+                                  {...field("last_menstruation_start_date")}
+                                  label="Last Menstruation Start Date"
+                                  position="LEFT"
+                                  disableFuture
+                                  required
+                                />
+                              </div>
+                            }
+                          </CollapseV2>
+                          <CollapseV2
+                            opened={String(field("gender").value) === "2"}
+                          >
+                            <RadioFormField
+                              {...field("is_postpartum")}
+                              label="Is postpartum? (<6 weeks)"
+                              className="font-bold"
+                              options={[
+                                { label: "Yes", value: "true" },
+                                { label: "No", value: "false" },
+                              ]}
+                              optionDisplay={(option) => option.label}
+                              optionValue={(option) => option.value}
+                            />
+                          </CollapseV2>
+                          <CollapseV2
+                            opened={field("is_postpartum").value === "true"}
+                          >
+                            <DateFormField
+                              containerClassName="w-full"
+                              {...field("date_of_delivery")}
+                              label="Date of Delivery"
+                              position="LEFT"
+                              disableFuture
+                              required
+                            />
                           </CollapseV2>
                           <div data-testid="current-address" id="address-div">
                             <TextAreaFormField
