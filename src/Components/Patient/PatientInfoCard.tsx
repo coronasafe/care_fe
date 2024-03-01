@@ -38,8 +38,6 @@ import { Mews } from "../Facility/Consultations/Mews.js";
 import DischargeSummaryModal from "../Facility/DischargeSummaryModal.js";
 import DischargeModal from "../Facility/DischargeModal.js";
 import { useTranslation } from "react-i18next";
-import Chip from "../../CAREUI/display/Chip.js";
-
 export default function PatientInfoCard(props: {
   patient: PatientModel;
   consultation?: ConsultationModel;
@@ -285,16 +283,6 @@ export default function PatientInfoCard(props: {
                       </span>
                     </span>
                   )}
-                  {patient.last_consultation?.suggestion === "A" && (
-                    <Chip
-                      size="small"
-                      variant="primary"
-                      startIcon="l-clock"
-                      text={`${t("ip_days")}: ${daysUntilToday(
-                        patient.last_consultation?.encounter_date
-                      )}`}
-                    />
-                  )}
                   {patient.action && patient.action != 10 && (
                     <div>
                       <div className="inline-flex w-full items-center justify-start rounded border border-gray-500 bg-blue-100 p-1 px-3 text-xs font-semibold leading-4">
@@ -481,6 +469,23 @@ export default function PatientInfoCard(props: {
               <Mews dailyRound={consultation?.last_daily_round} />
             </div>
           )}
+
+          <div>
+            <div className="  flex flex-col items-center   ">
+              <div className="border-grey-400 flex h-7 w-7 items-center justify-center rounded-full border-2 p-4 ">
+                <span className="text-sm font-semibold">
+                  {patient.last_consultation &&
+                  patient.last_consultation?.suggestion === "A"
+                    ? daysUntilToday(patient.last_consultation?.encounter_date)
+                    : "0"}
+                </span>
+              </div>
+              <span className="mt-1 text-xs font-medium text-gray-700">
+                IP Days
+              </span>
+            </div>
+          </div>
+
           {!!consultation?.discharge_date && (
             <div className="flex min-w-max flex-col items-center justify-center">
               <div className="text-sm font-normal leading-5 text-gray-500">
