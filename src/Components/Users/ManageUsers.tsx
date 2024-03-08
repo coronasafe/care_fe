@@ -1,15 +1,10 @@
 import dayjs from "dayjs";
 import { navigate } from "raviger";
 import { lazy, useState } from "react";
-import { AdvancedFilterButton } from "../../CAREUI/interactive/FiltersSlideover";
-import ButtonV2, { Submit } from "../Common/components/ButtonV2";
-import CareIcon from "../../CAREUI/icons/CareIcon";
-import ConfirmHomeFacilityUpdateDialog from "./ConfirmHomeFacilityUpdateDialog";
+import { useTranslation } from "react-i18next";
 import CountBlock from "../../CAREUI/display/Count";
-import { FacilityModel } from "../Facility/models";
-import { FacilitySelect } from "../Common/FacilitySelect";
-import SearchInput from "../Form/SearchInput";
-import SkillsSlideOver from "./SkillsSlideOver";
+import CareIcon from "../../CAREUI/icons/CareIcon";
+import { AdvancedFilterButton } from "../../CAREUI/interactive/FiltersSlideover";
 import SlideOverCustom from "../../CAREUI/interactive/SlideOver";
 import { USER_TYPES } from "../../Common/constants";
 import useAuthUser from "../../Common/hooks/useAuthUser.js";
@@ -34,10 +29,12 @@ import CircularProgress from "../Common/components/CircularProgress.js";
 import Page from "../Common/components/Page.js";
 import { FacilityModel } from "../Facility/models";
 import TextFormField from "../Form/FormFields/TextFormField.js";
-import useAuthUser from "../../Common/hooks/useAuthUser.js";
-import routes from "../../Redux/api.js";
-import useQuery from "../../Utils/request/useQuery.js";
-import request from "../../Utils/request/request.js";
+import SearchInput from "../Form/SearchInput";
+import ConfirmHomeFacilityUpdateDialog from "./ConfirmHomeFacilityUpdateDialog";
+import SkillsSlideOver from "./SkillsSlideOver";
+import UnlinkFacilityDialog from "./UnlinkFacilityDialog";
+import UserDeleteDialog from "./UserDeleteDialog";
+import UserFilter from "./UserFilter";
 
 const Loading = lazy(() => import("../Common/Loading"));
 
@@ -446,7 +443,7 @@ export default function ManageUsers() {
   }
 
   return (
-    <Page title="User Management" hideBack={true} breadcrumbs={false}>
+    <Page title={t("user_management")} hideBack={true} breadcrumbs={false}>
       {expandSkillList && (
         <SkillsSlideOver
           show={expandSkillList}
@@ -513,7 +510,7 @@ export default function ManageUsers() {
               name="username"
               onChange={(e) => updateQuery({ [e.name]: e.value })}
               value={qParams.username}
-              placeholder="Search by username"
+              placeholder={t("search_by_username")}
             />
           </div>
           <div className="flex flex-col gap-2">
