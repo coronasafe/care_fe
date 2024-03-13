@@ -226,6 +226,7 @@ export const FileUpload = (props: FileUploadProps) => {
     { name: "Unarchived Files", value: "UNARCHIVED" },
     { name: "Archived Files", value: "ARCHIVED" },
   ]);
+  const [isMicPermission, setIsMicPermission] = useState(true);
 
   const { data: patient } = useQuery(routes.getPatient, {
     pathParams: { id: patientId },
@@ -554,6 +555,10 @@ export const FileUpload = (props: FileUploadProps) => {
     }
 
     setbtnloader(false);
+  };
+
+  const handleSetMicPermission = (isPermitted: boolean) => {
+    setIsMicPermission(isPermitted);
   };
 
   const renderFileUpload = (item: FileUploadModel) => {
@@ -1490,8 +1495,9 @@ export const FileUpload = (props: FileUploadProps) => {
                       confirmAudioBlobExists={confirmAudioBlobExists}
                       reset={resetRecording}
                       setResetRecording={setResetRecording}
+                      handleSetMicPermission={handleSetMicPermission}
                     />
-                    {!audioBlobExists && (
+                    {!audioBlobExists && !isMicPermission && (
                       <span className="text-sm font-medium text-warning-500">
                         <CareIcon
                           icon="l-exclamation-triangle"
