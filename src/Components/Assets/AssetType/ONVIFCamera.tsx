@@ -3,12 +3,14 @@ import { AssetData, ResolvedMiddleware } from "../AssetTypes";
 import * as Notification from "../../../Utils/Notifications.js";
 import { BedModel } from "../../Facility/models";
 import { getCameraConfig } from "../../../Utils/transformUtils";
-import CameraConfigure from "../configure/CameraConfigure";
 import Loading from "../../Common/Loading";
 import { checkIfValidIP } from "../../../Common/validation";
 import TextFormField from "../../Form/FormFields/TextFormField";
 import { Submit } from "../../Common/components/ButtonV2";
 import { SyntheticEvent } from "react";
+import LiveFeed from "../../Facility/Consultations/LiveFeed";
+import Card from "../../../CAREUI/display/Card";
+import { BoundaryRange } from "../../../Common/constants";
 import useAuthUser from "../../../Common/hooks/useAuthUser";
 
 import request from "../../../Utils/request/request";
@@ -42,6 +44,91 @@ const ONVIFCamera = ({ assetId, facilityId, asset, onUpdated }: Props) => {
   const [refreshPresetsHash, setRefreshPresetsHash] = useState(
     Number(new Date())
   );
+  const [boundaryPreset, setBoundaryPreset] = useState<any>(null);
+  const [toUpdateBoundary, setToUpdateBoundary] = useState<boolean>(false);
+  const [loadingAddBoundaryPreset, setLoadingAddBoundaryPreset] =
+    useState<boolean>(false);
+  const [updateBoundaryNotif, setUpdateBoundaryNotif] =
+    useState<string>("notUpdated");
+  const [presets, setPresets] = useState<any[]>([]);
+
+  const mapZoomToBuffer = (zoom: number): number => {
+    interface bufferAtZoom {
+      [key: string]: number;
+    }
+    const bufferAtMaxZoom: bufferAtZoom = {
+      "0.3": 0.2,
+      "0.4": 0.1,
+      "0.5": 0.05,
+    };
+    let buffer = 0;
+    Object.keys(bufferAtMaxZoom).forEach((key: string) => {
+      if (zoom <= Number(key)) {
+        buffer = bufferAtMaxZoom[key];
+      }
+    });
+    return buffer !== 0 ? buffer : 0.0625;
+  };
+
+  const calcBoundary = (presets: any[]): BoundaryRange => {
+    const INT_MAX = 0.9;
+    const boundary: BoundaryRange = {
+      max_x: -INT_MAX,
+      min_x: INT_MAX,
+      max_y: -INT_MAX,
+      min_y: INT_MAX,
+    };
+
+    const edgePresetsZoom: BoundaryRange = {
+      max_x: 0,
+      min_x: 0,
+      max_y: 0,
+      min_y: 0,
+    };
+
+    presets.forEach((preset: any) => {
+      if (preset?.meta?.position) {
+        const position = preset.meta.position;
+        if (position.x > boundary.max_x) {
+          boundary.max_x = position.x;
+          edgePresetsZoom.max_x = position.zoom;
+        }
+        if (position.x < boundary.min_x) {
+          boundary.min_x = position.x;
+          edgePresetsZoom.min_x = position.zoom;
+        }
+        if (position.y > boundary.max_y) {
+          boundary.max_y = position.y;
+          edgePresetsZoom.max_y = position.zoom;
+        }
+        if (position.y < boundary.min_y) {
+          boundary.min_y = position.y;
+          edgePresetsZoom.min_y = position.zoom;
+        }
+      }
+    });
+
+    Object.keys(edgePresetsZoom).forEach((key) => {
+      const zoom = edgePresetsZoom[key as keyof BoundaryRange];
+      const buffer = mapZoomToBuffer(zoom);
+
+      if (key == "max_x" || key == "max_y") {
+        boundary[key] = boundary[key] + buffer;
+      } else {
+        boundary[key as keyof BoundaryRange] =
+          boundary[key as keyof BoundaryRange] - buffer;
+      }
+    });
+    if (boundary.max_x <= boundary.min_x || boundary.max_y <= boundary.min_y) {
+      return {
+        max_x: INT_MAX,
+        min_x: -INT_MAX,
+        max_y: INT_MAX,
+        min_y: -INT_MAX,
+      };
+    }
+    return boundary;
+  };
   const { data: facility, loading } = useQuery(routes.getPermittedFacility, {
     pathParams: { id: facilityId },
   });
@@ -60,6 +147,40 @@ const ONVIFCamera = ({ assetId, facilityId, asset, onUpdated }: Props) => {
     }
     setIsLoading(false);
   }, [asset]);
+
+  const fetchBoundaryBedPreset = async () => {
+    const { res, data } = await request(routes.listAssetBeds, {
+      query: { bed: bed.id },
+    });
+
+    if (res && res.status === 200 && data) {
+      let bedAssets: any[] = data.results;
+
+      if (bedAssets.length > 0) {
+        let boundaryPreset = null;
+        bedAssets = bedAssets.filter((bedAsset: any) => {
+          if (bedAsset?.asset_object?.meta?.asset_type != "CAMERA") {
+            return false;
+          } else if (bedAsset?.meta?.type == "boundary") {
+            boundaryPreset = bedAsset;
+            return false;
+          } else if (bedAsset?.meta?.position) {
+            return true;
+          }
+          return false;
+        });
+        if (boundaryPreset) {
+          setBoundaryPreset(boundaryPreset);
+        } else {
+          setBoundaryPreset(null);
+        }
+        setPresets(bedAssets);
+      }
+    } else {
+      setPresets([]);
+      setBoundaryPreset(null);
+    }
+  };
 
   const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
@@ -90,8 +211,120 @@ const ONVIFCamera = ({ assetId, facilityId, asset, onUpdated }: Props) => {
     }
   };
 
-  const addPreset = async (e: SyntheticEvent) => {
-    e.preventDefault();
+  const addBoundaryPreset = async () => {
+    const config = getCameraConfig(asset as AssetData);
+    try {
+      setLoadingAddBoundaryPreset(true);
+
+      if (bed?.id) {
+        const presetData = await axios.get(
+          `https://${resolvedMiddleware?.hostname}/status?hostname=${config.hostname}&port=${config.port}&username=${config.username}&password=${config.password}`
+        );
+        const range = calcBoundary(presets);
+        const meta = {
+          type: "boundary",
+          preset_name: `${bed?.name} boundary`,
+          bed_id: bed?.id,
+          error: presetData.data.error,
+          utcTime: presetData.data.utcTime,
+          range: range,
+        };
+
+        const { res } = await request(routes.createAssetBed, {
+          body: {
+            meta: meta,
+            asset: assetId,
+            bed: bed?.id as string,
+          },
+        });
+        if (res?.status === 201) {
+          Notification.Success({
+            msg: "Boundary Preset Added Successfully",
+          });
+          // setBed({});
+          setRefreshPresetsHash(Number(new Date()));
+        } else {
+          Notification.Error({
+            msg: "Failed to add Boundary Preset",
+          });
+        }
+      } else {
+        Notification.Error({
+          msg: "Please select a bed to add Boundary Preset",
+        });
+      }
+    } catch (e) {
+      console.log(e);
+      Notification.Error({
+        msg: "Something went wrong..!",
+      });
+    }
+    setLoadingAddBoundaryPreset(false);
+  };
+
+  const updateBoundaryPreset = async () => {
+    if (boundaryPreset && bed?.id) {
+      try {
+        if (
+          !boundaryPreset?.asset_object?.id ||
+          !boundaryPreset?.bed_object?.id
+        ) {
+          Notification.Error({
+            msg: "Something went wrong..!",
+          });
+          return;
+        }
+        const data = {
+          asset: boundaryPreset.asset_object.id,
+          bed: boundaryPreset.bed_object.id,
+          meta: boundaryPreset.meta,
+        };
+
+        const { res } = await request(routes.partialUpdateAssetBed, {
+          body: data,
+          pathParams: { external_id: boundaryPreset.id },
+        });
+        if (res?.status === 200) {
+          setUpdateBoundaryNotif("updated");
+        } else {
+          setUpdateBoundaryNotif("error");
+          Notification.Error({
+            msg: "Failed to modify Boundary Preset",
+          });
+        }
+      } catch (e) {
+        Notification.Error({
+          msg: "Something went wrong..!",
+        });
+      }
+    }
+  };
+  const deleteBoundaryPreset = async () => {
+    if (boundaryPreset) {
+      try {
+        const { res } = await request(routes.deleteAssetBed, {
+          pathParams: { external_id: boundaryPreset.id },
+        });
+        if (res?.status === 204) {
+          Notification.Success({
+            msg: "Boundary Preset Deleted Successfully",
+          });
+          // setBed({});
+          setRefreshPresetsHash(Number(new Date()));
+        } else {
+          Notification.Error({
+            msg: "Failed to delete Boundary Preset",
+          });
+        }
+      } catch (e) {
+        Notification.Error({
+          msg: "Something went wrong..!",
+        });
+      }
+    }
+  };
+
+  const addPreset = async () => {
     const config = getCameraConfig(asset as AssetData);
     const data = {
       bed_id: bed.id,
@@ -119,14 +352,13 @@ const ONVIFCamera = ({ assetId, facilityId, asset, onUpdated }: Props) => {
         Notification.Success({
           msg: "Preset Added Successfully",
         });
-        setBed({});
-        setNewPreset("");
-        setRefreshPresetsHash(Number(new Date()));
       } else {
         Notification.Error({
           msg: "Something went wrong..!",
         });
       }
+      setNewPreset("");
+      setRefreshPresetsHash(Number(new Date()));
     } catch (e) {
       Notification.Error({
         msg: "Something went wrong..!",
@@ -209,17 +441,33 @@ const ONVIFCamera = ({ assetId, facilityId, asset, onUpdated }: Props) => {
       )}
 
       {assetType === "ONVIF" ? (
-        <CameraConfigure
-          asset={asset as AssetData}
-          bed={bed}
-          setBed={setBed}
-          newPreset={newPreset}
-          setNewPreset={setNewPreset}
-          addPreset={addPreset}
-          isLoading={loadingAddPreset}
-          refreshPresetsHash={refreshPresetsHash}
-          facilityMiddlewareHostname={resolvedMiddleware?.hostname || ""}
-        />
+        <>
+          <Card className="mt-4" title="Live Feed">
+            <LiveFeed
+              middlewareHostname={resolvedMiddleware}
+              asset={getCameraConfig(asset)}
+              addPreset={addPreset}
+              setBed={setBed}
+              bed={bed}
+              newPreset={newPreset}
+              loadingAddPreset={loadingAddPreset}
+              setNewPreset={setNewPreset}
+              showRefreshButton={true}
+              refreshPresetsHash={refreshPresetsHash}
+              boundaryPreset={boundaryPreset}
+              fetchBoundaryBedPreset={fetchBoundaryBedPreset}
+              setBoundaryPreset={setBoundaryPreset}
+              addBoundaryPreset={addBoundaryPreset}
+              updateBoundaryPreset={updateBoundaryPreset}
+              deleteBoundaryPreset={deleteBoundaryPreset}
+              toUpdateBoundary={toUpdateBoundary}
+              setToUpdateBoundary={setToUpdateBoundary}
+              loadingAddBoundaryPreset={loadingAddBoundaryPreset}
+              updateBoundaryNotif={updateBoundaryNotif}
+              setUpdateBoundaryNotif={setUpdateBoundaryNotif}
+            />
+          </Card>
+        </>
       ) : null}
     </div>
   );

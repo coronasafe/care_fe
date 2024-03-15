@@ -13,6 +13,8 @@ import {
 } from "../../../Common/hooks/useMSEplayer";
 import { PTZState, useFeedPTZ } from "../../../Common/hooks/useFeedPTZ";
 import { useEffect, useRef, useState } from "react";
+// import { statusType, useAbortableEffect } from "../../../Common/utils";
+import ButtonV2 from "../../Common/components/ButtonV2.js";
 
 import CareIcon from "../../../CAREUI/icons/CareIcon.js";
 import FeedButton from "./FeedButton";
@@ -23,6 +25,8 @@ import { useDispatch } from "react-redux";
 import { useHLSPLayer } from "../../../Common/hooks/useHLSPlayer";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import useFullscreen from "../../../Common/hooks/useFullscreen.js";
+import { useMessageListener } from "../../../Common/hooks/useMessageListener.js";
+import useNotificationSubscribe from "../../../Common/hooks/useNotificationSubscribe.js";
 import { triggerGoal } from "../../../Integrations/Plausible.js";
 import useAuthUser from "../../../Common/hooks/useAuthUser.js";
 import Spinner from "../../Common/Spinner.js";
@@ -34,10 +38,19 @@ interface IFeedProps {
   consultationId: any;
 }
 
+interface cameraOccupier {
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  homeFacility?: string;
+}
+
 const PATIENT_DEFAULT_PRESET = "Patient View".trim().toLowerCase();
 
-export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
+export const Feed: React.FC<IFeedProps> = ({ facilityId, consultationId }) => {
   const dispatch: any = useDispatch();
+  const CAMERA_ACCESS_TIMEOUT = 10 * 60; //seconds
 
   const videoWrapper = useRef<HTMLDivElement>(null);
 
@@ -53,12 +66,172 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
   const [bed, setBed] = useState<any>();
   const [precision, setPrecision] = useState(1);
   const [cameraState, setCameraState] = useState<PTZState | null>(null);
+  const [boundaryPreset, setBoundaryPreset] = useState<any>();
   const [isFullscreen, setFullscreen] = useFullscreen();
+
+  // Information about subscription and camera occupier in case asset is not occupied by the current user
+  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
+  const [showCameraOccupierInfo, setShowCameraOccupierInfo] = useState(false);
+  const [cameraOccupier, setCameraOccupier] = useState<cameraOccupier>({});
+  const [timeoutSeconds, setTimeoutSeconds] = useState(CAMERA_ACCESS_TIMEOUT);
+  const [isRequestingAccess, setIsRequestingAccess] = useState<boolean>(false);
+
+  const [borderAlert, setBorderAlert] = useState<any>(null);
+  const [privacy, setPrivacy] = useState<boolean>(false);
+  const [privacyLockedBy, setPrivacyLockedBy] = useState<string>("");
   const [videoStartTime, setVideoStartTime] = useState<Date | null>(null);
   const [statusReported, setStatusReported] = useState(false);
   const [resolvedMiddleware, setResolvedMiddleware] =
     useState<ResolvedMiddleware>();
   const authUser = useAuthUser();
+
+  // Notification hook to get subscription info
+  const {
+    subscriptionStatus,
+    isSubscribing,
+    intialSubscriptionState,
+    subscribe,
+  } = useNotificationSubscribe();
+
+  useEffect(() => {
+    intialSubscriptionState();
+  }, [dispatch, subscriptionStatus]);
+
+  // display subscription info
+  const subscriptionInfo = () => {
+    return (
+      <div
+        className="relative mb-1 flex flex-col justify-end"
+        onMouseLeave={() => {
+          setShowSubscriptionInfo(false);
+        }}
+      >
+        {showSubscriptionInfo && (
+          <div className="absolute z-10 flex -translate-x-24 translate-y-32 flex-col gap-2 rounded-md bg-white p-2  drop-shadow-md">
+            <div className="text-xs">
+              {subscriptionStatus != "SubscribedOnThisDevice"
+                ? "Subscribe to get real time information about camera access"
+                : "You are subscribed, and will get real time information about camera access"}
+            </div>
+            {subscriptionStatus != "SubscribedOnThisDevice" && (
+              <ButtonV2
+                onClick={subscribe}
+                ghost
+                variant="secondary"
+                disabled={isSubscribing}
+                size="small"
+                border
+              >
+                {isSubscribing && <Spinner />}
+                <CareIcon className="care-l-bell" />
+                Subscribe
+              </ButtonV2>
+            )}
+          </div>
+        )}
+        <div
+          onMouseEnter={() => {
+            setShowSubscriptionInfo(true);
+          }}
+        >
+          <CareIcon className="care-l-info-circle text-xl" />
+        </div>
+      </div>
+    );
+  };
+
+  //display current cameraoccupier info incase the asset is not occupied by the current user
+  const currentCameraOccupierInfo = () => {
+    return (
+      <div
+        className="relative flex flex-row-reverse"
+        onMouseLeave={() => {
+          setShowCameraOccupierInfo(false);
+        }}
+      >
+        {showCameraOccupierInfo && (
+          <div className="absolute z-10 flex w-48 -translate-x-8 flex-col gap-2 rounded-md bg-white p-2 drop-shadow-md">
+            <div className="text-xs text-gray-600">
+              Camera is being used by...
+            </div>
+
+            <div className="flex flex-col gap-1 text-sm font-semibold">
+              <div>{`${cameraOccupier.firstName} ${cameraOccupier.lastName}-`}</div>
+              <div className="text-green-600">{`${cameraOccupier.role}`}</div>
+            </div>
+            {cameraOccupier.homeFacility && (
+              <div className="text-sm">{`${cameraOccupier.homeFacility}`}</div>
+            )}
+            <ButtonV2
+              onClick={() => {
+                setIsRequestingAccess(true);
+                requestAccess({
+                  onSuccess: () => {
+                    Notification.Success({ msg: "Request sent" });
+                    setIsRequestingAccess(false);
+                  },
+                  onError: () => {
+                    Notification.Error({ msg: "Request failed" });
+                    setIsRequestingAccess(false);
+                  },
+                });
+              }}
+              ghost
+              variant="secondary"
+              size="small"
+              border
+            >
+              {isRequestingAccess && <Spinner />}
+              Request Access
+            </ButtonV2>
+          </div>
+        )}
+        <div
+          className="h-8 w-8 items-center  rounded-full border-2 border-green-500 bg-white text-center"
+          onMouseEnter={() => {
+            setShowCameraOccupierInfo(true);
+          }}
+        >
+          <div className="mb-1 text-2xl font-bold text-green-600">
+            {cameraOccupier?.firstName?.[0] ? (
+              cameraOccupier?.firstName?.[0].toUpperCase()
+            ) : (
+              <CareIcon className="care-l-user" />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    const fetchFacility = async () => {
+      const { data, res } = await request(routes.getPermittedFacility, {
+        pathParams: { id: facilityId },
+      });
+
+      if (res?.ok && data) {
+        setResolvedMiddleware({
+          hostname: data?.middleware_address ?? "",
+          source: "asset",
+        });
+        // setFacilityMiddlewareHostname(res.data.middleware_address);
+        //   useQuery(routes.getPermittedFacilities, {
+        //     pathParams: { id: facilityId || "" },
+        //     onResponse: ({ res, data }) => {
+        //       if (res && res.status === 200 && data && data.middleware_address) {
+        //         setFacilityMiddlewareHostname(data.middleware_address);
+      }
+    };
+
+    fetchFacility();
+  }, []);
+
+  // const fallbackMiddleware =
+  //   cameraAsset.location_middleware || resolvedMiddleware;
+
+  // const currentMiddleware =
+  //   cameraAsset.middleware_address || fallbackMiddleware;
 
   useEffect(() => {
     if (cameraState) {
@@ -86,29 +259,33 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
 
   const { loading: getConsultationLoading } = useQuery(routes.getConsultation, {
     pathParams: { id: consultationId },
-    onResponse: ({ res, data }) => {
+    onResponse: async ({ res, data }) => {
       if (res && res.status === 200 && data) {
         const consultationBedId = data.current_bed?.bed_object?.id;
         if (consultationBedId) {
-          (async () => {
-            const { res: listAssetBedsRes, data: listAssetBedsData } =
-              await request(routes.listAssetBeds, {
-                query: {
-                  bed: consultationBedId,
-                },
-              });
-            setBed(consultationBedId);
-            const bedAssets: any = {
-              ...listAssetBedsRes,
-              data: {
-                ...listAssetBedsData,
-                results: listAssetBedsData?.results.filter((asset) => {
-                  return asset?.asset_object?.meta?.asset_type === "CAMERA";
-                }),
+          const { res: listAssetBedsRes, data: listAssetBedsData } =
+            await request(routes.listAssetBeds, {
+              query: {
+                bed: consultationBedId,
               },
-            };
+            });
+          setBed(consultationBedId);
 
-            if (bedAssets?.data?.results?.length) {
+          const bedAssets: any = {
+            ...listAssetBedsRes,
+            data: {
+              ...listAssetBedsData,
+              results: listAssetBedsData?.results.filter((asset) => {
+                return asset?.asset_object?.meta?.asset_type === "CAMERA";
+              }),
+            },
+          };
+
+          if (bedAssets?.data?.results?.length) {
+            bedAssets.data.results = bedAssets.data.results.filter(
+              (bedAsset: any) => bedAsset.meta.type !== "boundary"
+            );
+            if (bedAssets.data?.results?.length) {
               const { camera_access_key } =
                 bedAssets.data.results[0].asset_object.meta;
               const config = camera_access_key.split(":");
@@ -122,16 +299,17 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
                   bedAssets.data.results[0].asset_object.location_object
                     ?.middleware_address,
               });
-              setResolvedMiddleware(
-                bedAssets.data.results[0].asset_object.resolved_middleware
-              );
               setCameraConfig(bedAssets.data.results[0].meta);
               setCameraState({
                 ...bedAssets.data.results[0].meta.position,
                 precision: 1,
               });
             }
-          })();
+          }
+          if (data?.current_bed?.privacy) {
+            setPrivacy(data?.current_bed?.privacy);
+            setPrivacyLockedBy(data?.current_bed?.meta?.locked_by);
+          }
         }
       }
     },
@@ -187,6 +365,9 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
     getPTZPayload,
     getPresets,
     relativeMove,
+    lockAsset,
+    unlockAsset,
+    requestAccess,
   } = useFeedPTZ({
     config: cameraAsset,
     dispatch,
@@ -204,10 +385,24 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
 
   const getBedPresets = async (asset: any) => {
     if (asset.id && bed) {
-      const { data: bedAssets } = await request(routes.listAssetBeds, {
+      const { data } = await request(routes.listAssetBeds, {
         query: { asset: asset.id, bed },
       });
-      setBedPresets(bedAssets?.results);
+      if (data?.results?.length) {
+        data.results = data.results.filter((bedAsset: any) => {
+          if (bedAsset.meta.type === "boundary") {
+            setBoundaryPreset(bedAsset);
+            return false;
+          } else {
+            return true;
+          }
+        });
+      }
+      setBedPresets(data?.results);
+      //       const { data: bedAssets } = await request(routes.listAssetBeds, {
+      //         query: { asset: asset.id, bed },
+      //       });
+      //       setBedPresets(bedAssets?.results);
     }
   };
 
@@ -234,8 +429,19 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
         startStreamFeed();
       }, 1000);
       getPresets({
-        onSuccess: (resp) => setPresets(resp),
-        onError: (_) => {
+        onSuccess: (resp) => {
+          setPresets(resp);
+          setCameraOccupier({});
+        },
+        onError: (resp) => {
+          if (resp.status === 409) {
+            setCameraOccupier(resp.data as cameraOccupier);
+            Notification.Error({
+              msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+            });
+          } else {
+            setCameraOccupier({});
+          }
           Notification.Error({
             msg: "Fetching presets failed",
           });
@@ -245,8 +451,108 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
     }
   }, [cameraAsset, resolvedMiddleware?.hostname]);
 
+  //lock and unlock asset on mount and unmount
   useEffect(() => {
-    let tId: any;
+    if (cameraAsset.id) {
+      lockAsset({
+        onError: async (resp) => {
+          if (resp.status === 409) {
+            setCameraOccupier(resp.data as cameraOccupier);
+          }
+        },
+        onSuccess() {
+          setCameraOccupier({});
+        },
+      });
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (cameraAsset.id) {
+        unlockAsset({});
+      }
+    });
+
+    return () => {
+      if (cameraAsset.id) {
+        unlockAsset({});
+      }
+      window.removeEventListener("beforeunload", () => {
+        if (cameraAsset.id) {
+          unlockAsset({});
+        }
+      });
+    };
+  }, [cameraAsset.id]);
+
+  //count down from CAMERA_ACCESS_TIMEOUT when mouse is idle to unlock asset after timeout
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeoutSeconds((prevSeconds) => prevSeconds - 1);
+    }, 1000);
+
+    const resetTimer = () => {
+      setTimeoutSeconds(CAMERA_ACCESS_TIMEOUT);
+    };
+
+    document.addEventListener("mousemove", resetTimer);
+
+    if (cameraOccupier.username) {
+      clearInterval(interval);
+      setTimeoutSeconds(CAMERA_ACCESS_TIMEOUT);
+      removeEventListener("mousemove", resetTimer);
+    }
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("mousemove", resetTimer);
+    };
+  }, [cameraOccupier]);
+
+  //unlock asset after timeout
+  useEffect(() => {
+    if (timeoutSeconds === 0) {
+      unlockAsset({});
+      setTimeoutSeconds(CAMERA_ACCESS_TIMEOUT);
+      setTimeout(() => {
+        lockAsset({
+          onError: async (resp) => {
+            if (resp.status === 409) {
+              setCameraOccupier(resp.data as cameraOccupier);
+            }
+          },
+          onSuccess() {
+            setCameraOccupier({});
+          },
+        });
+      }, 2000);
+    }
+  }, [timeoutSeconds]);
+
+  //Listen to push notifications for-
+  //1) camera access request
+  //2) camera access granted
+  useMessageListener((data) => {
+    if (data?.status == "success" && data?.asset_id === cameraAsset?.id) {
+      lockAsset({
+        onError: async (resp) => {
+          if (resp.status === 409) {
+            setCameraOccupier(resp.data as cameraOccupier);
+          }
+        },
+        onSuccess: () => {
+          setCameraOccupier({});
+          setTimeoutSeconds(CAMERA_ACCESS_TIMEOUT);
+        },
+      });
+    } else if (data.status == "request") {
+      Notification.Warn({
+        msg: `${data?.firstName} ${data?.lastName} is requesting access to the camera`,
+      });
+    }
+  });
+
+  useEffect(() => {
+    let tId: NodeJS.Timeout;
     if (streamStatus !== StreamStatus.Playing) {
       if (streamStatus !== StreamStatus.Offline) {
         setStreamStatus(StreamStatus.Loading);
@@ -266,7 +572,7 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
     return () => {
       clearTimeout(tId);
     };
-  }, [startStream, streamStatus]);
+  }, [startStream, streamStatus, authUser.id, consultationId, statusReported]);
 
   useEffect(() => {
     if (!currentPreset && streamStatus === StreamStatus.Playing) {
@@ -283,11 +589,20 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
           onSuccess: () => {
             setLoading(CAMERA_STATES.IDLE);
             setCurrentPreset(preset);
+            setCameraOccupier({});
           },
           onError: (err: Record<any, any>) => {
+            if (err.status === 409) {
+              setCameraOccupier(err.data as cameraOccupier);
+              Notification.Error({
+                msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+              });
+            } else {
+              setCameraOccupier({});
+            }
             setLoading(CAMERA_STATES.IDLE);
             const responseData = err.data.result;
-            if (responseData.status) {
+            if (responseData?.status) {
               switch (responseData.status) {
                 case "error":
                   if (responseData.error.code === "EHOSTUNREACH") {
@@ -314,6 +629,13 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
       }
     }
   }, [bedPresets, streamStatus]);
+
+  const borderFlash: (dir: any) => void = (dir: any) => {
+    setBorderAlert(dir);
+    setTimeout(() => {
+      setBorderAlert(null);
+    }, 3000);
+  };
 
   const cameraPTZActionCBs: {
     [key: string]: (option: any, value?: any) => void;
@@ -349,6 +671,7 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
     updatePreset: (option) => {
       getCameraStatus({
         onSuccess: async (data) => {
+          setCameraOccupier({});
           if (currentPreset?.asset_object?.id && data?.position) {
             setLoading(option.loadingLabel);
             const { res, data: assetBedData } = await request(
@@ -367,19 +690,138 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
             );
             if (res && assetBedData && res.status === 200) {
               Notification.Success({ msg: "Preset Updated" });
-              await getBedPresets(cameraAsset?.id);
-              getPresets({});
+              getBedPresets(cameraAsset?.id);
+              getPresets({
+                onSuccess: () => {
+                  setCameraOccupier({});
+                },
+                onError: (resp) => {
+                  if (resp.status === 409) {
+                    setCameraOccupier(resp.data as cameraOccupier);
+                    Notification.Error({
+                      msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+                    });
+                  } else {
+                    setCameraOccupier({});
+                  }
+                },
+              });
+              //               await getBedPresets(cameraAsset?.id);
+              //               getPresets({});
             }
             setLoading(CAMERA_STATES.IDLE);
+          }
+        },
+        onError: (resp) => {
+          if (resp.status === 409) {
+            setCameraOccupier(resp.data as cameraOccupier);
+            Notification.Error({
+              msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+            });
+          } else {
+            setCameraOccupier({});
           }
         },
       });
     },
     other: (option, value) => {
       setLoading(option.loadingLabel);
-      relativeMove(getPTZPayload(option.action, precision, value), {
-        onSuccess: () => setLoading(CAMERA_STATES.IDLE),
+      let payLoad = getPTZPayload(option.action, precision, value);
+      if (boundaryPreset?.meta?.range && cameraState) {
+        const range = boundaryPreset.meta.range;
+        if (option.action == "up" && cameraState.y + payLoad.y > range.max_y) {
+          borderFlash("top");
+          setLoading(CAMERA_STATES.IDLE);
+          return;
+        } else if (
+          option.action == "down" &&
+          cameraState.y + payLoad.y < range.min_y
+        ) {
+          borderFlash("bottom");
+          setLoading(CAMERA_STATES.IDLE);
+          return;
+        } else if (
+          option.action == "left" &&
+          cameraState.x + payLoad.x < range.min_x
+        ) {
+          borderFlash("left");
+          setLoading(CAMERA_STATES.IDLE);
+          return;
+        } else if (
+          option.action == "right" &&
+          cameraState.x + payLoad.x > range.max_x
+        ) {
+          borderFlash("right");
+          setLoading(CAMERA_STATES.IDLE);
+          return;
+        } else if (
+          option.action == "zoomOut" &&
+          cameraState.zoom + payLoad.zoom < 0
+        ) {
+          Notification.Error({ msg: "Cannot zoom out" });
+          setLoading(CAMERA_STATES.IDLE);
+          return;
+        }
+      }
+      //insert boundaryPreset.id in payload
+      if (boundaryPreset?.id) {
+        payLoad = {
+          ...payLoad,
+          id: boundaryPreset.id,
+          camera_state: cameraState,
+        };
+      }
+
+      relativeMove(payLoad, {
+        onSuccess: () => {
+          setLoading(CAMERA_STATES.IDLE);
+          setCameraOccupier({});
+        },
+        onError: async (resp) => {
+          if (resp.status === 409) {
+            setCameraOccupier(resp.data as cameraOccupier);
+            Notification.Error({
+              msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+            });
+          } else {
+            setCameraOccupier({});
+          }
+          setLoading(CAMERA_STATES.IDLE);
+        },
       });
+      if (cameraState) {
+        let x = cameraState.x;
+        let y = cameraState.y;
+        let zoom = cameraState.zoom;
+        switch (option.action) {
+          case "left":
+            x += -0.1 / cameraState.precision;
+            break;
+
+          case "right":
+            x += 0.1 / cameraState.precision;
+            break;
+
+          case "down":
+            y += -0.1 / cameraState.precision;
+            break;
+
+          case "up":
+            y += 0.1 / cameraState.precision;
+            break;
+
+          case "zoomIn":
+            zoom += 0.1 / cameraState.precision;
+            break;
+          case "zoomOut":
+            zoom += -0.1 / cameraState.precision;
+            break;
+          default:
+            break;
+        }
+
+        setCameraState({ ...cameraState, x: x, y: y, zoom: zoom });
+      }
     },
   };
 
@@ -399,6 +841,22 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
     useKeyboardShortcut(option.shortcutKey, option.callback);
   }
 
+  const PrivacyOnCard = () => {
+    return (
+      <div className="flex h-[calc(90vh-1.5rem)] flex-col items-center justify-center px-2">
+        <CareIcon className="care-l-lock text-center text-9xl text-gray-500 " />
+        <div className="text-md font-semibold">
+          Feed is unavailable due to privacy mode
+        </div>
+      </div>
+    );
+  };
+
+  if (privacy && privacyLockedBy !== authUser.username) {
+    return <PrivacyOnCard />;
+  }
+
+  //   if (isLoading) return <Loading />;
   if (getConsultationLoading) return <Loading />;
 
   return (
@@ -416,6 +874,7 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
                   absoluteMove(preset.meta.position, {
                     onSuccess: () => {
                       setLoading(CAMERA_STATES.IDLE);
+                      setCameraOccupier({});
                       setCurrentPreset(preset);
                       console.log(
                         "onSuccess: Set Preset to " + preset?.meta?.preset_name
@@ -427,7 +886,15 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
                         result: "success",
                       });
                     },
-                    onError: () => {
+                    onError: async (resp) => {
+                      if (resp.status === 409) {
+                        setCameraOccupier(resp.data as cameraOccupier);
+                        Notification.Error({
+                          msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+                        });
+                      } else {
+                        setCameraOccupier({});
+                      }
                       setLoading(CAMERA_STATES.IDLE);
                       setCurrentPreset(preset);
                       console.log(
@@ -441,7 +908,21 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
                       });
                     },
                   });
-                  getCameraStatus({});
+                  getCameraStatus({
+                    onSuccess: () => {
+                      setCameraOccupier({});
+                    },
+                    onError: (resp) => {
+                      if (resp.status === 409) {
+                        setCameraOccupier(resp.data as cameraOccupier);
+                        Notification.Error({
+                          msg: `Camera is being used by ${cameraOccupier?.firstName} ${cameraOccupier?.lastName}`,
+                        });
+                      } else {
+                        setCameraOccupier({});
+                      }
+                    },
+                  });
                 }}
                 className={classNames(
                   "block border border-gray-500 px-4 py-2 first:rounded-l last:rounded-r",
@@ -455,196 +936,208 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
             ))}
           </div>
         </div>
+        <div className="flex flex-row gap-2">
+          {cameraOccupier?.username && currentCameraOccupierInfo()}
+          {subscriptionInfo()}
+        </div>
       </div>
       <div
-        className="relative flex h-[calc(100vh-1.5rem-90px)] grow-0 items-center justify-center overflow-hidden rounded-xl bg-black"
-        ref={videoWrapper}
+        className={`${
+          borderAlert == null ? "" : borderAlert
+        }-border-flash mt-2`}
       >
-        {isIOS ? (
-          <ReactPlayer
-            url={url}
-            ref={liveFeedPlayerRef.current as any}
-            controls={false}
-            playsinline={true}
-            playing={true}
-            muted={true}
-            onPlay={() => {
-              setVideoStartTime(() => new Date());
-            }}
-            width="100%"
-            height="100%"
-            onBuffer={() => {
-              const delay = calculateVideoLiveDelay();
-              if (delay > 5) {
-                setStreamStatus(StreamStatus.Loading);
-              }
-            }}
-            onError={(e: any, _: any, hlsInstance: any) => {
-              if (e === "hlsError") {
-                const recovered = hlsInstance.recoverMediaError();
-                console.log(recovered);
-              }
-            }}
-            onEnded={() => {
-              setStreamStatus(StreamStatus.Stop);
-            }}
-          />
-        ) : (
-          <video
-            id="mse-video"
-            autoPlay
-            muted
-            playsInline
-            className="max-h-full max-w-full"
-            onPlay={() => {
-              setVideoStartTime(() => new Date());
-            }}
-            onWaiting={() => {
-              const delay = calculateVideoLiveDelay();
-              if (delay > 5) {
-                setStreamStatus(StreamStatus.Loading);
-              }
-            }}
-            ref={liveFeedPlayerRef as any}
-          />
-        )}
+        <div
+          className="relative z-0 flex h-[calc(100vh-1.5rem-90px)] grow-0 items-center justify-center overflow-hidden rounded-xl bg-black"
+          ref={videoWrapper}
+        >
+          {isIOS ? (
+            <ReactPlayer
+              url={url}
+              ref={liveFeedPlayerRef.current as any}
+              controls={false}
+              playsinline={true}
+              playing={true}
+              muted={true}
+              onPlay={() => {
+                setStreamStatus(StreamStatus.Playing);
+                setVideoStartTime(() => new Date());
+              }}
+              width="100%"
+              height="100%"
+              onBuffer={() => {
+                const delay = calculateVideoLiveDelay();
+                if (delay > 5) {
+                  setStreamStatus(StreamStatus.Loading);
+                }
+              }}
+              onError={(e: any, _: any, hlsInstance: any) => {
+                if (e === "hlsError") {
+                  const recovered = hlsInstance.recoverMediaError();
+                  console.log(recovered);
+                }
+              }}
+              onEnded={() => {
+                setStreamStatus(StreamStatus.Stop);
+              }}
+            />
+          ) : (
+            <video
+              id="mse-video"
+              autoPlay
+              muted
+              playsInline
+              className="max-h-full max-w-full"
+              onPlay={() => {
+                setStreamStatus(StreamStatus.Playing);
+                setVideoStartTime(() => new Date());
+              }}
+              onWaiting={() => {
+                const delay = calculateVideoLiveDelay();
+                if (delay > 5) {
+                  setStreamStatus(StreamStatus.Loading);
+                }
+              }}
+              ref={liveFeedPlayerRef as any}
+            />
+          )}
 
-        {loading !== CAMERA_STATES.IDLE && (
-          <div className="absolute inset-x-0 top-2 flex items-center justify-center text-center">
-            <div className="inline-flex items-center gap-2 rounded bg-white/70 p-4">
-              <div className="an h-4 w-4 animate-spin rounded-full border-2 border-b-0 border-primary-500" />
-              <p className="text-base font-bold">{loading}</p>
+          {loading !== CAMERA_STATES.IDLE && (
+            <div className="absolute inset-x-0 top-2 flex items-center justify-center text-center">
+              <div className="inline-flex items-center gap-2 rounded bg-white/70 p-4">
+                <div className="an h-4 w-4 animate-spin rounded-full border-2 border-b-0 border-primary-500" />
+                <p className="text-base font-bold">{loading}</p>
+              </div>
+            </div>
+          )}
+          <div className="absolute bottom-0 right-0 flex h-full w-full items-center justify-center p-4 text-white">
+            {streamStatus === StreamStatus.Offline && (
+              <div className="text-center">
+                <p className="font-bold">
+                  STATUS: <span className="text-red-600">OFFLINE</span>
+                </p>
+                <p className="font-semibold ">Feed is currently not live.</p>
+                <p className="font-semibold ">Trying to connect... </p>
+                <p className="mt-2 flex justify-center">
+                  <Spinner circle={{ fill: "none" }} />
+                </p>
+              </div>
+            )}
+            {streamStatus === StreamStatus.Stop && (
+              <div className="text-center">
+                <p className="font-bold">
+                  STATUS: <span className="text-red-600">STOPPED</span>
+                </p>
+                <p className="font-semibold ">Feed is Stooped.</p>
+                <p className="font-semibold ">
+                  Click refresh button to start feed.
+                </p>
+              </div>
+            )}
+            {streamStatus === StreamStatus.Loading && (
+              <div className="text-center">
+                <p className="font-bold ">
+                  STATUS: <span className="text-red-600"> LOADING</span>
+                </p>
+                <p className="font-semibold ">Fetching latest feed.</p>
+              </div>
+            )}
+          </div>
+          <div className="absolute right-8 top-8 z-10 flex flex-col gap-4">
+            {["fullScreen", "reset", "updatePreset", "zoomIn", "zoomOut"].map(
+              (button, index) => {
+                const option = cameraPTZ.find(
+                  (option) => option.action === button
+                );
+                return (
+                  <FeedButton
+                    key={index}
+                    camProp={option}
+                    styleType="CHHOTUBUTTON"
+                    clickAction={() => option?.callback()}
+                  />
+                );
+              }
+            )}
+            <div className="hideonmobilescreen pl-3">
+              <FeedCameraPTZHelpButton cameraPTZ={cameraPTZ} />
             </div>
           </div>
-        )}
-        <div className="absolute bottom-0 right-0 flex h-full w-full items-center justify-center p-4 text-white">
-          {streamStatus === StreamStatus.Offline && (
-            <div className="text-center">
-              <p className="font-bold">
-                STATUS: <span className="text-red-600">OFFLINE</span>
-              </p>
-              <p className="font-semibold ">Feed is currently not live.</p>
-              <p className="font-semibold ">Trying to connect... </p>
-              <p className="mt-2 flex justify-center">
-                <Spinner circle={{ fill: "none" }} />
-              </p>
-            </div>
-          )}
-          {streamStatus === StreamStatus.Stop && (
-            <div className="text-center">
-              <p className="font-bold">
-                STATUS: <span className="text-red-600">STOPPED</span>
-              </p>
-              <p className="font-semibold ">Feed is Stooped.</p>
-              <p className="font-semibold ">
-                Click refresh button to start feed.
-              </p>
-            </div>
-          )}
-          {streamStatus === StreamStatus.Loading && (
-            <div className="text-center">
-              <p className="font-bold ">
-                STATUS: <span className="text-red-600"> LOADING</span>
-              </p>
-              <p className="font-semibold ">Fetching latest feed.</p>
-            </div>
-          )}
-        </div>
-        <div className="absolute right-8 top-8 z-10 flex flex-col gap-4">
-          {["fullScreen", "reset", "updatePreset", "zoomIn", "zoomOut"].map(
-            (button, index) => {
-              const option = cameraPTZ.find(
-                (option) => option.action === button
-              );
-              return (
-                <FeedButton
-                  key={index}
-                  camProp={option}
-                  styleType="CHHOTUBUTTON"
-                  clickAction={() => option?.callback()}
-                />
-              );
-            }
-          )}
-          <div className="hidden pl-3 md:block">
-            <FeedCameraPTZHelpButton cameraPTZ={cameraPTZ} />
+          <div className="absolute bottom-8 right-8 z-10">
+            <FeedButton
+              camProp={cameraPTZ[4]}
+              styleType="CHHOTUBUTTON"
+              clickAction={() => cameraPTZ[4].callback()}
+            />
           </div>
-        </div>
-        <div className="absolute bottom-8 right-8 z-10">
-          <FeedButton
-            camProp={cameraPTZ[4]}
-            styleType="CHHOTUBUTTON"
-            clickAction={() => cameraPTZ[4].callback()}
-          />
-        </div>
-        {streamStatus === StreamStatus.Playing &&
-          calculateVideoLiveDelay() > 3 && (
-            <div className="absolute left-8 top-8 z-10 flex items-center gap-2 rounded-3xl bg-red-400 px-3 py-1.5 text-xs font-semibold text-gray-100">
-              <CareIcon className="care-l-wifi-slash h-4 w-4" />
-              <span>Slow Network Detected</span>
-            </div>
-          )}
-        <div className="absolute bottom-8 left-8 z-10 grid grid-flow-col grid-rows-3 gap-1">
-          {[
-            false,
-            cameraPTZ[2],
-            false,
-            cameraPTZ[0],
-            false,
-            cameraPTZ[1],
-            false,
-            cameraPTZ[3],
-            false,
-          ].map((c, i) => {
-            let out = <div className="h-[60px] w-[60px]" key={i}></div>;
-            if (c) {
-              const button = c as any;
-              out = (
-                <FeedButton
-                  key={i}
-                  camProp={button}
-                  styleType="BUTTON"
-                  clickAction={() => {
-                    triggerGoal("Camera Feed Moved", {
-                      direction: button.action,
-                      consultationId,
-                      userId: authUser.id,
-                    });
+          {streamStatus === StreamStatus.Playing &&
+            calculateVideoLiveDelay() > 3 && (
+              <div className="absolute left-8 top-8 z-10 flex items-center gap-2 rounded-3xl bg-red-400 px-3 py-1.5 text-xs font-semibold text-gray-100">
+                <CareIcon className="care-l-wifi-slash h-4 w-4" />
+                <span>Slow Network Detected</span>
+              </div>
+            )}
+          <div className="absolute bottom-8 left-8 z-10 grid grid-flow-col grid-rows-3 gap-1">
+            {[
+              false,
+              cameraPTZ[2],
+              false,
+              cameraPTZ[0],
+              false,
+              cameraPTZ[1],
+              false,
+              cameraPTZ[3],
+              false,
+            ].map((c, i) => {
+              let out = <div className="h-[60px] w-[60px]" key={i}></div>;
+              if (c) {
+                const button = c as any;
+                out = (
+                  <FeedButton
+                    key={i}
+                    camProp={button}
+                    styleType="BUTTON"
+                    clickAction={() => {
+                      triggerGoal("Camera Feed Moved", {
+                        direction: button.action,
+                        consultationId,
+                        userId: authUser?.id,
+                      });
 
-                    button.callback();
-                    if (cameraState) {
-                      let x = cameraState.x;
-                      let y = cameraState.y;
-                      switch (button.action) {
-                        case "left":
-                          x += -0.1 / cameraState.precision;
-                          break;
+                      button.callback();
+                      if (cameraState) {
+                        let x = cameraState.x;
+                        let y = cameraState.y;
+                        switch (button.action) {
+                          case "left":
+                            x += -0.1 / cameraState.precision;
+                            break;
 
-                        case "right":
-                          x += 0.1 / cameraState.precision;
-                          break;
+                          case "right":
+                            x += 0.1 / cameraState.precision;
+                            break;
 
-                        case "down":
-                          y += -0.1 / cameraState.precision;
-                          break;
+                          case "down":
+                            y += -0.1 / cameraState.precision;
+                            break;
 
-                        case "up":
-                          y += 0.1 / cameraState.precision;
-                          break;
+                          case "up":
+                            y += 0.1 / cameraState.precision;
+                            break;
 
-                        default:
-                          break;
+                          default:
+                            break;
+                        }
+
+                        setCameraState({ ...cameraState, x: x, y: y });
                       }
+                    }}
+                  />
+                );
+              }
 
-                      setCameraState({ ...cameraState, x: x, y: y });
-                    }
-                  }}
-                />
-              );
-            }
-
-            return out;
-          })}
+              return out;
+            })}
+          </div>
         </div>
       </div>
     </div>

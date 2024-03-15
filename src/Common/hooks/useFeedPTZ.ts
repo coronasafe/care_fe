@@ -15,6 +15,8 @@ interface PTZPayload {
   x: number;
   y: number;
   zoom: number;
+  id?: string | null;
+  camera_state?: PTZState | null;
 }
 
 export interface PTZState {
@@ -55,6 +57,9 @@ interface UseMSEMediaPlayerReturnType {
   getCameraStatus: (options: IOptions) => void;
   getPresets: (options: IOptions) => void;
   gotoPreset: (payload: IGotoPresetPayload, options: IOptions) => void;
+  lockAsset: (options: IOptions) => void;
+  unlockAsset: (options: IOptions) => void;
+  requestAccess: (options: IOptions) => void;
 }
 
 interface IOptions {
@@ -196,6 +201,57 @@ export const getPTZPayload = (
   return { x, y, zoom };
 };
 
+const lockAsset =
+  (config: IAsset, dispatch: any) =>
+  async (options: IOptions = {}) => {
+    if (!config.id) return;
+    const resp = await dispatch(
+      operateAsset(config.id, {
+        action: {
+          type: "lock_camera",
+        },
+      })
+    );
+    resp &&
+      (resp.status === 200
+        ? options?.onSuccess && options.onSuccess(resp.data.result)
+        : options?.onError && options.onError(resp));
+  };
+
+const requestAccess =
+  (config: IAsset, dispatch: any) =>
+  async (options: IOptions = {}) => {
+    if (!config.id) return;
+    const resp = await dispatch(
+      operateAsset(config.id, {
+        action: {
+          type: "request_access",
+        },
+      })
+    );
+    resp &&
+      (resp.status === 200
+        ? options?.onSuccess && options.onSuccess(resp.data.result)
+        : options?.onError && options.onError(resp));
+  };
+
+const unlockAsset =
+  (config: IAsset, dispatch: any) =>
+  async (options: IOptions = {}) => {
+    if (!config.id) return;
+    const resp = await dispatch(
+      operateAsset(config.id, {
+        action: {
+          type: "unlock_camera",
+        },
+      })
+    );
+    resp &&
+      (resp.status === 200
+        ? options?.onSuccess && options.onSuccess(resp.data.result)
+        : options?.onError && options.onError(resp));
+  };
+
 export const useFeedPTZ = ({
   config,
   dispatch,
@@ -207,5 +263,8 @@ export const useFeedPTZ = ({
     getCameraStatus: getCameraStatus(config, dispatch),
     getPresets: getPresets(config, dispatch),
     gotoPreset: gotoPreset(config, dispatch),
+    lockAsset: lockAsset(config, dispatch),
+    unlockAsset: unlockAsset(config, dispatch),
+    requestAccess: requestAccess(config, dispatch),
   };
 };

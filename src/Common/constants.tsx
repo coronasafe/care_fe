@@ -714,7 +714,7 @@ export const RHYTHM_CHOICES: Array<OptionsType> = [
   { id: 10, text: "IRREGULAR", desc: "Irregular" },
 ];
 
-export const LOCATION_BED_TYPES: Array<any> = [
+export const LOCATION_BED_TYPES: Array<{ id: string; name: string }> = [
   { id: "ISOLATION", name: "Isolation" },
   { id: "ICU", name: "ICU" },
   { id: "BED_WITH_OXYGEN_SUPPORT", name: "Bed with oxygen support" },
@@ -1030,6 +1030,14 @@ export const XLSXAssetImportSchema = {
     },
   },
 };
+
+export type direction = "left" | "right" | "up" | "down" | null;
+export interface BoundaryRange {
+  max_x: number;
+  min_x: number;
+  max_y: number;
+  min_y: number;
+}
 
 export const USER_TYPES_MAP = {
   Pharmacist: "Pharmacist",
