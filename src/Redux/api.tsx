@@ -65,6 +65,7 @@ import {
   PatientNotesModel,
   PatientStatsModel,
   PatientTransferResponse,
+  PatientPrivacyModel,
   StateModel,
   WardModel,
 } from "../Components/Facility/models";
@@ -484,10 +485,27 @@ const routes = {
   getConsultationBed: {
     path: "/api/v1/consultationbed/{external_id}/",
     method: "GET",
+    TRes: Type<CurrentBed>(),
   },
   updateConsultationBed: {
     path: "/api/v1/consultationbed/{external_id}/",
     method: "PUT",
+  },
+  togglePatientPrivacy: {
+    path: "/api/v1/consultationbed/{external_id}/toggle_patient_privacy/",
+    method: "PATCH",
+  },
+  enablePatientPrivacy: {
+    path: "/api/v1/consultationbed/{external_id}/patient_privacy/",
+    method: "POST",
+    TBody: Type<PatientPrivacyModel>(),
+    TRes: Type<PatientPrivacyModel>(),
+  },
+  disablePatientPrivacy: {
+    path: "/api/v1/consultationbed/{external_id}/patient_privacy/",
+    method: "DELETE",
+    TBody: Type<PatientPrivacyModel>(),
+    TRes: Type<PatientPrivacyModel>(),
   },
 
   // Download Api

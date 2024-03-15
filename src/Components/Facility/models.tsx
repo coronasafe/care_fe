@@ -166,6 +166,11 @@ export interface ConsultationModel {
   investigation?: InvestigationType[];
 }
 
+export interface PatientPrivacyModel {
+  status: string;
+  detail: string;
+}
+
 export interface PatientStatsModel {
   id?: string;
   entryDate?: string;
@@ -229,6 +234,7 @@ export interface BedModel {
   };
   location?: string;
   is_occupied?: boolean;
+  meta?: object;
   created_date?: string;
   modified_date?: string;
 }
@@ -243,6 +249,7 @@ export interface CurrentBed {
   modified_date: string;
   start_date: string;
   end_date: string;
+  privacy?: boolean;
   meta: Record<string, any>;
 }
 
