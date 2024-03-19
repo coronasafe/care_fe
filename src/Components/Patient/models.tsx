@@ -328,6 +328,7 @@ export interface DailyRoundsModel {
     user_type?: string;
   };
   bed?: string;
+  ventilator_interface?: string;
 }
 
 export interface FacilityNameModel {

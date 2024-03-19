@@ -121,7 +121,7 @@ const PatientNoteCard = ({
                     </div>
                     <CareIcon
                       icon="l-history"
-                      className="ml-1 h-4 w-4 pt-[3px] text-primary-600"
+                      className="ml-1 size-4 pt-[3px] text-primary-600"
                     />
                   </div>
                 </div>
@@ -138,7 +138,7 @@ const PatientNoteCard = ({
                   setIsEditing(true);
                 }}
               >
-                <CareIcon icon="l-pen" className="h-5 w-5" />
+                <CareIcon icon="l-pen" className="size-5" />
               </ButtonV2>
             )}
         </div>
@@ -163,7 +163,7 @@ const PatientNoteCard = ({
                     }}
                     id="cancel-update-note-button"
                   >
-                    <CareIcon icon="l-times-circle" className="h-5 w-5" />
+                    <CareIcon icon="l-times-circle" className="size-5" />
                     Cancel
                   </ButtonV2>
                   <ButtonV2
@@ -171,7 +171,7 @@ const PatientNoteCard = ({
                     onClick={onUpdateNote}
                     id="update-note-button"
                   >
-                    <CareIcon icon="l-check" className="h-5 w-5 text-white" />
+                    <CareIcon icon="l-check" className="size-5 text-white" />
                     Update Note
                   </ButtonV2>
                 </div>

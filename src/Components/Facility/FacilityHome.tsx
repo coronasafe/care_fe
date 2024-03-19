@@ -278,7 +278,7 @@ export const FacilityHome = (props: any) => {
             </div>
             <div className="mt-10 flex items-center gap-3">
               <div>
-                {facilityData?.features?.some((feature) =>
+                {facilityData?.features?.some((feature: number) =>
                   FACILITY_FEATURE_TYPES.some((f) => f.id === feature)
                 ) && (
                   <h1 className="text-lg font-semibold">Available features</h1>
@@ -380,7 +380,14 @@ export const FacilityHome = (props: any) => {
                 >
                   View Users
                 </DropdownItem>
-                {hasPermissionToDeleteFacility && (
+                <DropdownItem
+                  id="view-abdm-records"
+                  onClick={() => navigate(`/facility/${facilityId}/abdm`)}
+                  icon={<CareIcon className="care-l-file-network text-lg" />}
+                >
+                  View ABDM Records
+                </DropdownItem>
+                {hasPermissionToDeleteFacility ? (
                   <DropdownItem
                     id="delete-facility"
                     variant="danger"
@@ -390,6 +397,8 @@ export const FacilityHome = (props: any) => {
                   >
                     Delete Facility
                   </DropdownItem>
+                ) : (
+                  <></>
                 )}
               </DropdownMenu>
             </div>
