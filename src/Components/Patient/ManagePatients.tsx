@@ -31,7 +31,11 @@ import RecordMeta from "../../CAREUI/display/RecordMeta";
 import SearchInput from "../Form/SearchInput";
 import SortDropdownMenu from "../Common/SortDropdown";
 import SwitchTabs from "../Common/components/SwitchTabs";
-import { formatAge, parsePhoneNumber } from "../../Utils/utils.js";
+import {
+  daysUntilToday,
+  formatAge,
+  parsePhoneNumber,
+} from "../../Utils/utils.js";
 import useFilters from "../../Common/hooks/useFilters";
 import { useTranslation } from "react-i18next";
 import Page from "../Common/components/Page.js";
@@ -569,6 +573,16 @@ export const PatientManager = () => {
                         text="Review Missed"
                       />
                     )}
+                  {patient.last_consultation?.suggestion === "A" && (
+                    <Chip
+                      size="small"
+                      variant="primary"
+                      startIcon="l-clock"
+                      text={`${t("ip_days")}: ${daysUntilToday(
+                        patient.last_consultation?.encounter_date
+                      )}`}
+                    />
+                  )}
                   {patient.last_consultation?.is_readmission && (
                     <Chip
                       size="small"

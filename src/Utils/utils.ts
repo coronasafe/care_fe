@@ -479,3 +479,7 @@ export const mergeQueryOptions = <T extends object>(
     ),
   ];
 };
+export function daysUntilToday(inputDate: Date | string) {
+  const date = dayjs(inputDate);
+  return dayjs().diff(date, "day");
+}
