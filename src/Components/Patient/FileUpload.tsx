@@ -226,6 +226,30 @@ export const FileUpload = (props: FileUploadProps) => {
     { name: "Unarchived Files", value: "UNARCHIVED" },
     { name: "Archived Files", value: "ARCHIVED" },
   ]);
+  const [isMicPermission, setIsMicPermission] = useState(true);
+
+  useEffect(() => {
+    const checkMicPermission = async () => {
+      try {
+        const permissions = await navigator.permissions.query({
+          name: "microphone" as PermissionName,
+        });
+        if (permissions.state === "granted") {
+          setIsMicPermission(true);
+        } else {
+          setIsMicPermission(false);
+        }
+      } catch (error) {
+        setIsMicPermission(false);
+      }
+    };
+
+    checkMicPermission();
+
+    return () => {
+      setIsMicPermission(true);
+    };
+  }, []);
 
   const { data: patient } = useQuery(routes.getPatient, {
     pathParams: { id: patientId },
@@ -554,6 +578,12 @@ export const FileUpload = (props: FileUploadProps) => {
     }
 
     setbtnloader(false);
+  };
+
+  const handleSetMicPermission: (isPermitted: boolean) => void = (
+    isPermitted
+  ) => {
+    setIsMicPermission(isPermitted);
   };
 
   const renderFileUpload = (item: FileUploadModel) => {
@@ -1490,8 +1520,9 @@ export const FileUpload = (props: FileUploadProps) => {
                       confirmAudioBlobExists={confirmAudioBlobExists}
                       reset={resetRecording}
                       setResetRecording={setResetRecording}
+                      handleSetMicPermission={handleSetMicPermission}
                     />
-                    {!audioBlobExists && (
+                    {!audioBlobExists && !isMicPermission && (
                       <span className="text-sm font-medium text-warning-500">
                         <CareIcon
                           icon="l-exclamation-triangle"
