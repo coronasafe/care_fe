@@ -18,8 +18,7 @@ import useVitalsAspectRatioConfig from "../VitalsMonitor/useVitalsAspectRatioCon
 import useQuery from "../../Utils/request/useQuery";
 import routes from "../../Redux/api";
 import { getVitalsMonitorSocketUrl } from "../VitalsMonitor/utils";
-
-const PER_PAGE_LIMIT = 6;
+import useBreakpoints from "../../Common/hooks/useBreakpoints";
 
 const SORT_OPTIONS: SortOption[] = [
   { isAscending: true, value: "bed__name" },
@@ -33,18 +32,19 @@ interface Props {
 }
 
 export default function CentralNursingStation({ facilityId }: Props) {
+  const perPageLimit = useBreakpoints({ "4k": 9, default: 6 });
   const { t } = useTranslation();
   const [isFullscreen, setFullscreen] = useFullscreen();
   const { qParams, updateQuery, removeFilter, updatePage } = useFilters({
-    limit: PER_PAGE_LIMIT,
+    limit: perPageLimit,
   });
   const query = useQuery(routes.listPatientAssetBeds, {
     pathParams: { facility_external_id: facilityId },
     query: {
       ...qParams,
       page: qParams.page || 1,
-      limit: PER_PAGE_LIMIT,
-      offset: (qParams.page ? qParams.page - 1 : 0) * PER_PAGE_LIMIT,
+      limit: perPageLimit,
+      offset: (qParams.page ? qParams.page - 1 : 0) * perPageLimit,
       asset_class: "HL7MONITOR",
       ordering: qParams.ordering || "bed__name",
       bed_is_occupied:
@@ -53,10 +53,12 @@ export default function CentralNursingStation({ facilityId }: Props) {
   });
 
   const totalCount = query.data?.count ?? 0;
+
   const data = query.data?.results.map((obj) => ({
     patientAssetBed: obj,
     socketUrl: getVitalsMonitorSocketUrl(obj.asset),
   }));
+  console.log("data is : ", data);
 
   const { config, hash } = useVitalsAspectRatioConfig({
     default: 6 / 11,
