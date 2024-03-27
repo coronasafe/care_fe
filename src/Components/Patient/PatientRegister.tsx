@@ -61,6 +61,7 @@ import useAuthUser from "../../Common/hooks/useAuthUser.js";
 import useQuery from "../../Utils/request/useQuery.js";
 import routes from "../../Redux/api.js";
 import request from "../../Utils/request/request.js";
+import Error404 from "../ErrorPages/404";
 
 const Loading = lazy(() => import("../Common/Loading"));
 const PageTitle = lazy(() => import("../Common/PageTitle"));
@@ -218,6 +219,8 @@ export const PatientRegister = (props: PatientRegisterProps) => {
   );
   const [insuranceDetailsError, setInsuranceDetailsError] =
     useState<FieldError>();
+
+  const [isAuthorized, setIsAuthorized] = useState(true);
 
   useEffect(() => {
     if (extId && formField) {
@@ -523,6 +526,31 @@ export const PatientRegister = (props: PatientRegisterProps) => {
     pathParams: { id: facilityId },
     prefetch: !!facilityId,
   });
+
+  useEffect(() => {
+    if (!facilityObject) return;
+    const showAllFacilityUsers = ["DistrictAdmin", "StateAdmin"];
+    if (
+      (!showAllFacilityUsers.includes(authUser.user_type) &&
+        authUser.home_facility_object?.id !== facilityId) ||
+      (authUser.user_type === "DistrictAdmin" &&
+        authUser.district !== facilityObject?.district) ||
+      (authUser.user_type === "StateAdmin" &&
+        authUser.state !== facilityObject?.state)
+    ) {
+      setIsAuthorized(false);
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [
+    facilityObject?.district,
+    facilityObject?.state,
+    authUser.user_type,
+    authUser.home_facility_object?.id,
+    facilityId,
+    authUser.district,
+    authUser.state,
+  ]);
 
   const validateForm = (form: any) => {
     const errors: Partial<Record<keyof any, FieldError>> = {};
@@ -1023,6 +1051,10 @@ export const PatientRegister = (props: PatientRegisterProps) => {
 
   if (isLoading) {
     return <Loading />;
+  }
+
+  if (!isAuthorized) {
+    return <Error404 />;
   }
 
   return (
