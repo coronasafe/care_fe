@@ -18,7 +18,6 @@ import CareIcon, { IconName } from "../../../CAREUI/icons/CareIcon.js";
 import FeedButton from "./FeedButton";
 import Loading from "../../Common/Loading";
 import ReactPlayer from "react-player";
-import { classNames } from "../../../Utils/utils";
 import { useDispatch } from "react-redux";
 import { useHLSPLayer } from "../../../Common/hooks/useHLSPlayer";
 import useKeyboardShortcut from "use-keyboard-shortcut";
@@ -28,6 +27,7 @@ import useAuthUser from "../../../Common/hooks/useAuthUser.js";
 import Spinner from "../../Common/Spinner.js";
 import useQuery from "../../../Utils/request/useQuery.js";
 import { ResolvedMiddleware } from "../../Assets/AssetTypes.js";
+import { SelectFormField } from "../../Form/FormFields/SelectFormField.js";
 
 interface IFeedProps {
   facilityId: string;
@@ -404,60 +404,72 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
   return (
     <div className="flex h-[calc(100vh-1.5rem)] flex-col px-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-4 px-3">
+        <div className="flex w-full items-center justify-between gap-4 px-3 md:justify-start">
           <p className="block text-lg font-medium"> Camera Presets :</p>
-          <div className="flex items-center">
-            {bedPresets?.map((preset: any, index: number) => (
-              <button
-                key={preset.id}
-                onClick={() => {
+          <div className=" z-30 flex flex-wrap items-center justify-center bg-gray-100 ">
+            <SelectFormField
+              id="preset"
+              name="preset"
+              labelClassName="hidden"
+              errorClassName="hidden"
+              options={bedPresets?.map(
+                (preset: any) => preset?.meta?.preset_name
+              )}
+              optionLabel={(preset: any) => preset}
+              optionValue={(preset: any) => preset}
+              value={currentPreset?.meta?.preset_name}
+              onChange={(selectedPreset: any) => {
+                if (selectedPreset.value === undefined) {
+                  setCurrentPreset(undefined);
+                  return;
+                } else {
+                  const presetDetails = bedPresets?.filter(
+                    (preset: any) =>
+                      preset?.meta?.preset_name === selectedPreset.value
+                  );
                   setLoading(CAMERA_STATES.MOVING.GENERIC);
-                  // gotoBedPreset(preset);
-                  absoluteMove(preset.meta.position, {
-                    onSuccess: () => {
-                      setLoading(CAMERA_STATES.IDLE);
-                      setCurrentPreset(preset);
-                      console.log(
-                        "onSuccess: Set Preset to " + preset?.meta?.preset_name
-                      );
-                      triggerGoal("Camera Preset Clicked", {
-                        presetName: preset?.meta?.preset_name,
-                        consultationId,
-                        userId: authUser.id,
-                        result: "success",
-                      });
-                    },
-                    onError: () => {
-                      setLoading(CAMERA_STATES.IDLE);
-                      setCurrentPreset(preset);
-                      console.log(
-                        "onError: Set Preset to " + preset?.meta?.preset_name
-                      );
-                      triggerGoal("Camera Preset Clicked", {
-                        presetName: preset?.meta?.preset_name,
-                        consultationId,
-                        userId: authUser.id,
-                        result: "error",
-                      });
-                    },
-                  });
+                  absoluteMove(
+                    presetDetails.length > 0 && presetDetails[0].meta?.position,
+                    {
+                      onSuccess: () => {
+                        setLoading(CAMERA_STATES.IDLE);
+                        setCurrentPreset(presetDetails[0]);
+                        console.log(
+                          "onSuccess: Set Preset to " + selectedPreset.value
+                        );
+                        triggerGoal("Camera Preset Clicked", {
+                          presetName: selectedPreset.value,
+                          consultationId,
+                          userId: authUser.id,
+                          result: "success",
+                        });
+                      },
+                      onError: () => {
+                        setLoading(CAMERA_STATES.IDLE);
+                        setCurrentPreset(presetDetails[0]);
+                        console.log(
+                          "onError: Set Preset to " + selectedPreset.value
+                        );
+                        triggerGoal("Camera Preset Clicked", {
+                          presetName: selectedPreset.value,
+                          consultationId,
+                          userId: authUser.id,
+                          result: "error",
+                        });
+                      },
+                    }
+                  );
                   getCameraStatus({});
-                }}
-                className={classNames(
-                  "block border border-gray-500 px-4 py-2 first:rounded-l last:rounded-r",
-                  currentPreset === preset
-                    ? "border-primary-500 bg-primary-500 text-white"
-                    : "bg-transparent"
-                )}
-              >
-                {preset.meta.preset_name || `Preset ${index + 1}`}
-              </button>
-            ))}
+                }
+              }}
+              className="w-40 md:w-60"
+            />
           </div>
         </div>
       </div>
+
       <div
-        className="relative flex h-[calc(100vh-1.5rem-90px)] grow-0 items-center justify-center overflow-hidden rounded-xl bg-black"
+        className="relative mt-2 flex aspect-video w-full grow-0 items-center justify-center overflow-hidden rounded-xl bg-black"
         ref={videoWrapper}
       >
         {isIOS ? (
@@ -550,7 +562,7 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
             </div>
           )}
         </div>
-        <div className="absolute right-8 top-8 z-10 flex flex-col gap-4">
+        <div className="right-8 top-8 z-20 hidden flex-col gap-4 lg:absolute lg:flex">
           {["fullScreen", "reset", "updatePreset", "zoomIn", "zoomOut"].map(
             (button, index) => {
               const option = cameraPTZ.find(
@@ -570,7 +582,8 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
             <FeedCameraPTZHelpButton cameraPTZ={cameraPTZ} />
           </div>
         </div>
-        <div className="absolute bottom-8 right-8 z-10">
+
+        <div className="bottom-8 right-8 z-20 hidden lg:absolute">
           <FeedButton
             camProp={cameraPTZ[4]}
             styleType="CHHOTUBUTTON"
@@ -584,7 +597,7 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
               <span>Slow Network Detected</span>
             </div>
           )}
-        <div className="absolute bottom-8 left-8 z-10 grid grid-flow-col grid-rows-3 gap-1">
+        <div className=" absolute bottom-8 left-8 z-10 hidden grid-flow-col grid-rows-3 gap-1 lg:grid">
           {[
             false,
             cameraPTZ[2],
@@ -647,6 +660,40 @@ export const Feed: React.FC<IFeedProps> = ({ consultationId }) => {
           })}
         </div>
       </div>
+      <div className="mt-4 flex w-full flex-wrap lg:hidden">
+        {cameraPTZ.map((option, index) => {
+          const shortcutKeyDescription =
+            option.shortcutKey &&
+            option.shortcutKey
+              .join(" + ")
+              .replace("Control", "Ctrl")
+              .replace("ArrowUp", "↑")
+              .replace("ArrowDown", "↓")
+              .replace("ArrowLeft", "←")
+              .replace("ArrowRight", "→");
+
+          return (
+            <button
+              key={index}
+              className="tooltip w-10 flex-1 border border-green-100 bg-green-100 px-3 py-2 text-lg font-bold hover:bg-green-200"
+              onClick={option.callback}
+            >
+              <span className="sr-only">{option.label}</span>
+              {option.icon ? (
+                <CareIcon className={`care-${option.icon}`} />
+              ) : (
+                <span className="flex h-full  items-center justify-center px-2 font-bold">
+                  {option.value}x
+                </span>
+              )}
+              <span className="tooltip-text tooltip-top -translate-x-1/2 text-sm font-semibold">{`${option.label}  (${shortcutKeyDescription})`}</span>
+            </button>
+          );
+        })}
+        <div className="hidden pl-3 md:block">
+          <FeedCameraPTZHelpButton cameraPTZ={cameraPTZ} />
+        </div>
+      </div>
     </div>
   );
 };
@@ -684,7 +731,7 @@ export const FeedCameraPTZHelpButton = (props: { cameraPTZ: CameraPTZ[] }) => {
                   );
 
                   // Skip wrapping with + for joining with next key
-                  if (index === option.shortcutKey.length - 1)
+                  if (index === option.shortcutKey?.length - 1)
                     return keyElement;
 
                   return (
