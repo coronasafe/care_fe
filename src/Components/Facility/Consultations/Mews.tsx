@@ -45,6 +45,23 @@ const getTempRange = (value?: number) => {
   return 2;
 };
 
+const getLOCLabel = (value: number) => {
+  if (value % 5 != 0 || (value > 30 && value < 0)) {
+    return;
+  }
+  const LOC = [
+    "UNKNOWN",
+    "ALERT",
+    "RESPONDS_TO_VOICE",
+    "RESPONDS_TO_PAIN",
+    "UNRESPONSIVE",
+    "AGITATED_OR_CONFUSED",
+    "ONSET_OF_AGITATION_AND_CONFUSION",
+  ];
+  const LOCindex = value / 5;
+  return LOC[LOCindex];
+};
+
 const getLOCRange = (value?: DailyRoundsModel["consciousness_level"]) => {
   if (!value) return;
 
@@ -67,7 +84,7 @@ const getBorderColor = (score: number) => {
   return "border-danger-500";
 };
 
-export const Mews = ({ dailyRound }: { dailyRound: DailyRoundsModel }) => {
+export const Mews = ({ dailyRound, modified_date }: any) => {
   const mewsCard = (isMissing: boolean, data: string[] | number) => {
     if (isMissing) {
       return (
@@ -80,7 +97,7 @@ export const Mews = ({ dailyRound }: { dailyRound: DailyRoundsModel }) => {
             <div className="tooltip-text tooltip-bottom w-48 -translate-x-1/2 translate-y-3 whitespace-pre-wrap text-xs font-medium lg:w-64">
               <span className="font-bold">{(data as string[]).join(", ")}</span>{" "}
               data is missing from the last log update.
-              <br /> Last Updated: {formatDateTime(dailyRound.modified_date)}
+              <br /> Last Updated: {formatDateTime(modified_date)}
             </div>
           </div>
           <div></div>
@@ -117,12 +134,12 @@ export const Mews = ({ dailyRound }: { dailyRound: DailyRoundsModel }) => {
               <p>
                 Consciousness:{" "}
                 <span className="font-bold capitalize">
-                  {dailyRound.consciousness_level
+                  {getLOCLabel(dailyRound.consciousness_level)
                     ?.replaceAll("_", " ")
                     .toLowerCase()}
                 </span>
               </p>
-              Last Updated: {formatDateTime(dailyRound.modified_date)}
+              Last Updated: {formatDateTime(modified_date)}
             </div>
           </div>
           <div></div>
@@ -138,7 +155,9 @@ export const Mews = ({ dailyRound }: { dailyRound: DailyRoundsModel }) => {
     Temperature: getTempRange(
       dailyRound.temperature ? parseFloat(dailyRound.temperature) : undefined
     ),
-    "Level of Consciousness": getLOCRange(dailyRound.consciousness_level),
+    "Level of Consciousness": getLOCRange(
+      getLOCLabel(dailyRound.consciousness_level)
+    ),
   };
 
   if (Object.values(scores).some((value) => value === undefined)) {
